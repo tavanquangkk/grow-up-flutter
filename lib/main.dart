@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:grow_up/features/auth/screens/Login.dart';
 import 'package:grow_up/features/auth/screens/Signup.dart';
+import 'package:grow_up/features/home/HomePage.dart';
+import 'package:grow_up/core/theme/app_theme.dart';
 
 void main() {
-  runApp(MaterialApp(home: MyApp(), debugShowCheckedModeBanner: false));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return LoginScreen();
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => LoginScreen(),
+        '/signup': (context) => Signup(),
+        '/home': (context) => HomePage(),
+      },
+    );
   }
 }
