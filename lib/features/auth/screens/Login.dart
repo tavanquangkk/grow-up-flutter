@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:grow_up/core/utils/api_service.dart';
+import 'package:go_router/go_router.dart';
+import 'package:grow_up/core/utils/apis/auth_api_service.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -27,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (res['status'] == 'success') {
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        context.go("/");
       } else {
         _showErrorDialog(res['message'] ?? 'ログインに失敗しました');
       }
@@ -46,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(), // ダイアログを閉じる
             child: Text('OK'),
           ),
         ],
@@ -245,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/signup');
+                            context.go("/register");
                           },
                           child: Text('新規登録'),
                         ),

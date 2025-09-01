@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:grow_up/core/utils/api_service.dart';
+import 'package:go_router/go_router.dart';
+import 'package:grow_up/core/utils/apis/auth_api_service.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 
-class Signup extends StatefulWidget {
-  const Signup({super.key});
+class Register extends StatefulWidget {
+  const Register({super.key});
 
   @override
-  State<Signup> createState() => _SignupState();
+  State<Register> createState() => _SignupState();
 }
 
-class _SignupState extends State<Signup> {
+class _SignupState extends State<Register> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -52,12 +53,7 @@ class _SignupState extends State<Signup> {
       builder: (_) => AlertDialog(
         title: Text('エラー', style: TextStyle(color: AppColors.error)),
         content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => {}, child: Text('OK'))],
       ),
     );
   }
@@ -68,19 +64,7 @@ class _SignupState extends State<Signup> {
       builder: (_) => AlertDialog(
         title: Text('成功', style: TextStyle(color: AppColors.success)),
         content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
-            },
-            child: Text('OK'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () {}, child: Text('OK'))],
       ),
     );
   }
@@ -107,7 +91,6 @@ class _SignupState extends State<Signup> {
                         IconButton(
                           onPressed: () => {
                             // 戻るボタンでログイン画面に戻る
-                            Navigator.pushReplacementNamed(context, '/login'),
                           },
                           icon: Icon(
                             Icons.arrow_back_ios,
@@ -326,7 +309,7 @@ class _SignupState extends State<Signup> {
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/login');
+                            context.go("/login");
                           },
                           child: Text('ログイン'),
                         ),

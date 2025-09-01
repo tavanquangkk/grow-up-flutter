@@ -13,19 +13,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _showAllWorkshops = false;
-  late Future<List> _workshopsFuture;
-  late Future<List> _usersFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshData();
-  }
-
-  void _refreshData() {
-    _workshopsFuture = HomePageApiService.getUpComingWorkshops();
-    _usersFuture = HomePageApiService.getRecommendedUsers();
-  }
 
   // 日付フォーマット関数
   String _formatDate(String dateString) {
@@ -175,7 +162,8 @@ class _HomePageState extends State<HomePage> {
                               ),
                               SizedBox(height: 16),
                               FutureBuilder<List>(
-                                future: _workshopsFuture,
+                                future:
+                                    HomePageApiService.getUpComingWorkshops(),
                                 builder: (context, snapshot) {
                                   if (snapshot.connectionState ==
                                       ConnectionState.waiting) {
@@ -416,14 +404,8 @@ class _HomePageState extends State<HomePage> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: () async {
-                                final result = await context.push(
-                                  '/create-workshop',
-                                );
-                                // 勉強会作成が成功した場合、データを更新
-                                if (result == true) {
-                                  _refreshData();
-                                }
+                              onPressed: () {
+                                context.push('/create-workshop');
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
@@ -469,7 +451,8 @@ class _HomePageState extends State<HomePage> {
                               Container(
                                 height: 200,
                                 child: FutureBuilder<List>(
-                                  future: _usersFuture,
+                                  future:
+                                      HomePageApiService.getRecommendedUsers(),
                                   builder: (context, snapshot) {
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
