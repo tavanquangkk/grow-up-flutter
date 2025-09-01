@@ -3,9 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
 
+typedef ProfileBackCallback = void Function();
+
 class ProfileScreen extends StatefulWidget {
   final String userId;
-  const ProfileScreen({super.key, required this.userId});
+  final ProfileBackCallback? onBack;
+  const ProfileScreen({super.key, required this.userId, this.onBack});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -73,7 +76,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 leading: IconButton(
                   icon: Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => context.pop(),
+                  onPressed: () {
+                    if (widget.onBack != null) {
+                      widget.onBack!(); // BottomNav用のコールバック（自分のプロフィール）
+                    } else {
+                      Navigator.of(context).pop(); // 他人のプロフィール画面から戻る
+                    }
+                  },
                 ),
               ),
 

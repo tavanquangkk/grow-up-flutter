@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/utils/apis/auth_api_service.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
+import 'package:grow_up/features/home/ProfileScreen.dart';
+import 'package:grow_up/features/home/WorkshopDetailDialog.dart';
+import 'package:grow_up/features/home/WorkshopListScreen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,7 +15,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _showAllWorkshops = false;
   late Future<List> _workshopsFuture;
   late Future<List> _usersFuture;
 
@@ -28,9 +30,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   // 日付フォーマット関数
-  String _formatDate(String dateString) {
+  String _formatDate(dynamic dateString) {
+    if (dateString == null) return '';
     try {
-      final date = DateTime.parse(dateString);
+      final date = DateTime.parse(dateString.toString());
       return '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return '';
@@ -82,12 +85,12 @@ class _HomePageState extends State<HomePage> {
                       content: Text('ログアウトしますか？'),
                       actions: [
                         TextButton(
-                          onPressed: () => context.pop(),
+                          onPressed: () => Navigator.pop(context),
                           child: Text('キャンセル'),
                         ),
                         TextButton(
                           onPressed: () async {
-                            context.pop();
+                            Navigator.pop(context);
                             await ApiService.logout();
                             if (!context.mounted) return;
                             context.go("/login");
@@ -123,19 +126,25 @@ class _HomePageState extends State<HomePage> {
                   child: SingleChildScrollView(
                     physics: BouncingScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.all(16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // 1. 検索バー
                           Container(
-                            margin: EdgeInsets.only(bottom: 24),
+                            margin: EdgeInsets.only(bottom: 20),
+                            height: 48,
                             child: TextField(
                               decoration: InputDecoration(
                                 hintText: '勉強会やユーザーを検索...',
+                                hintStyle: TextStyle(fontSize: 14),
                                 prefixIcon: Icon(
                                   Icons.search,
                                   color: AppColors.textSecondary,
+                                  size: 20,
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -153,10 +162,15 @@ class _HomePageState extends State<HomePage> {
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
                                     color: AppColors.primary,
+                                    width: 1.5,
                                   ),
                                 ),
                                 filled: true,
                                 fillColor: AppColors.surface,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -165,15 +179,26 @@ class _HomePageState extends State<HomePage> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '勉強会一覧',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '開催が近い勉強会',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.event_note,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                ],
                               ),
-                              SizedBox(height: 16),
+                              SizedBox(height: 12),
                               FutureBuilder<List>(
                                 future: _workshopsFuture,
                                 builder: (context, snapshot) {
@@ -190,219 +215,297 @@ class _HomePageState extends State<HomePage> {
                                   }
                                   final allWorkshops = snapshot.data ?? [];
                                   if (allWorkshops.isEmpty) {
-                                    return Center(child: Text('勉強会はありません'));
+                                    return Container(
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppColors.border,
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.event_busy,
+                                              color: AppColors.textSecondary,
+                                              size: 32,
+                                            ),
+                                            SizedBox(height: 8),
+                                            Text(
+                                              '勉強会はありません',
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
                                   }
 
-                                  // 表示する勉強会数を決定
-                                  final displayWorkshops = _showAllWorkshops
-                                      ? allWorkshops
-                                      : allWorkshops.take(3).toList();
+                                  // 最初の5つだけ表示
+                                  final displayWorkshops =
+                                      allWorkshops.length > 5
+                                      ? allWorkshops.sublist(0, 5)
+                                      : allWorkshops;
 
                                   return Column(
                                     children: [
-                                      // 勉強会リスト
-                                      ListView.builder(
-                                        shrinkWrap: true,
-                                        physics: NeverScrollableScrollPhysics(),
-                                        itemCount: displayWorkshops.length,
-                                        itemBuilder: (context, index) {
-                                          final workshop =
-                                              displayWorkshops[index];
-                                          return Container(
-                                            margin: EdgeInsets.only(bottom: 12),
-                                            child: Card(
-                                              elevation: 2,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
+                                      // 勉強会リスト（横向き）
+                                      Container(
+                                        height: 180, // 高さを調整
+                                        child: ListView.builder(
+                                          scrollDirection: Axis.horizontal,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          itemCount: displayWorkshops.length,
+                                          itemBuilder: (context, index) {
+                                            final workshop =
+                                                displayWorkshops[index];
+                                            return Container(
+                                              width: 260, // カードの幅を少し狭く
+                                              margin: EdgeInsets.only(
+                                                right: 12,
                                               ),
-                                              child: Padding(
-                                                padding: EdgeInsets.all(16),
-                                                child: Row(
-                                                  children: [
-                                                    // アイコン
-                                                    Container(
-                                                      width: 50,
-                                                      height: 50,
-                                                      decoration: BoxDecoration(
-                                                        color: AppColors.primary
-                                                            .withOpacity(0.1),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
+                                              child: Card(
+                                                elevation: 2,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: InkWell(
+                                                  onTap: () {
+                                                    // 勉強会詳細ダイアログを表示
+                                                    showDialog(
+                                                      context: context,
+                                                      builder:
+                                                          (
+                                                            BuildContext
+                                                            context,
+                                                          ) {
+                                                            final dateValue =
+                                                                workshop['date'];
+                                                            final formattedDate =
+                                                                dateValue !=
+                                                                    null
+                                                                ? _formatDate(
+                                                                    dateValue,
+                                                                  )
+                                                                : '';
+
+                                                            return WorkshopDetailDialog(
+                                                              workshop:
+                                                                  workshop,
+                                                              formattedDate:
+                                                                  formattedDate,
+                                                            );
+                                                          },
+                                                    );
+                                                  },
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(14),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        // アイコンとタイトル行
+                                                        Row(
+                                                          children: [
+                                                            // アイコン
+                                                            Container(
+                                                              width: 36,
+                                                              height: 36,
+                                                              decoration: BoxDecoration(
+                                                                color: AppColors
+                                                                    .primary
+                                                                    .withOpacity(
+                                                                      0.1,
+                                                                    ),
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      8,
+                                                                    ),
+                                                              ),
+                                                              child: Icon(
+                                                                Icons.event,
+                                                                color: AppColors
+                                                                    .primary,
+                                                                size: 18,
+                                                              ),
                                                             ),
-                                                      ),
-                                                      child: Icon(
-                                                        Icons.event,
-                                                        color:
-                                                            AppColors.primary,
-                                                        size: 24,
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 16),
-                                                    // コンテンツ
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            workshop['name'] ??
-                                                                '',
-                                                            style: TextStyle(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color: AppColors
-                                                                  .textPrimary,
+                                                            SizedBox(width: 10),
+                                                            // タイトル
+                                                            Expanded(
+                                                              child: Text(
+                                                                workshop['name'] ??
+                                                                    '',
+                                                                style: TextStyle(
+                                                                  fontSize: 15,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color: AppColors
+                                                                      .textPrimary,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
                                                             ),
-                                                          ),
-                                                          SizedBox(height: 4),
-                                                          Text(
+                                                          ],
+                                                        ),
+                                                        SizedBox(height: 10),
+                                                        // 説明
+                                                        Expanded(
+                                                          child: Text(
                                                             workshop['description'] ??
                                                                 '',
                                                             style: TextStyle(
-                                                              fontSize: 14,
+                                                              fontSize: 13,
                                                               color: AppColors
                                                                   .textSecondary,
+                                                              height: 1.3,
                                                             ),
                                                             maxLines: 2,
                                                             overflow:
                                                                 TextOverflow
                                                                     .ellipsis,
                                                           ),
-                                                          SizedBox(height: 8),
-                                                          Row(
-                                                            children: [
-                                                              Icon(
-                                                                Icons.person,
-                                                                size: 16,
-                                                                color: AppColors
-                                                                    .textSecondary,
-                                                              ),
-                                                              SizedBox(
-                                                                width: 4,
-                                                              ),
-                                                              Text(
-                                                                workshop['host']?['name'] ??
-                                                                    '',
-                                                                style: TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: AppColors
-                                                                      .textSecondary,
-                                                                ),
-                                                              ),
-                                                              if (workshop['date'] !=
-                                                                  null) ...[
-                                                                SizedBox(
-                                                                  width: 16,
-                                                                ),
+                                                        ),
+                                                        SizedBox(height: 8),
+                                                        // ホストと日時情報
+                                                        Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Row(
+                                                              children: [
                                                                 Icon(
-                                                                  Icons
-                                                                      .schedule,
-                                                                  size: 16,
+                                                                  Icons.person,
+                                                                  size: 14,
                                                                   color: AppColors
                                                                       .textSecondary,
                                                                 ),
                                                                 SizedBox(
                                                                   width: 4,
                                                                 ),
-                                                                Text(
-                                                                  _formatDate(
-                                                                    workshop['date'],
-                                                                  ),
-                                                                  style: TextStyle(
-                                                                    fontSize:
-                                                                        12,
-                                                                    color: AppColors
-                                                                        .textSecondary,
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    workshop['host']?['name'] ??
+                                                                        '',
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      color: AppColors
+                                                                          .textSecondary,
+                                                                    ),
+                                                                    maxLines: 1,
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
                                                                   ),
                                                                 ),
                                                               ],
+                                                            ),
+                                                            if (workshop['date'] !=
+                                                                null) ...[
+                                                              SizedBox(
+                                                                height: 2,
+                                                              ),
+                                                              Row(
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .schedule,
+                                                                    size: 14,
+                                                                    color: AppColors
+                                                                        .textSecondary,
+                                                                  ),
+                                                                  SizedBox(
+                                                                    width: 4,
+                                                                  ),
+                                                                  Text(
+                                                                    _formatDate(
+                                                                      workshop['date'],
+                                                                    ),
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      color: AppColors
+                                                                          .textSecondary,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
                                                             ],
-                                                          ),
-                                                        ],
-                                                      ),
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ),
-                                                  ],
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          );
-                                        },
+                                            );
+                                          },
+                                        ),
                                       ),
-                                      // もっと見るボタン
-                                      if (!_showAllWorkshops &&
-                                          allWorkshops.length > 3)
-                                        Container(
-                                          width: double.infinity,
-                                          margin: EdgeInsets.only(top: 16),
-                                          child: OutlinedButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                _showAllWorkshops = true;
-                                              });
-                                            },
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  AppColors.primary,
-                                              side: BorderSide(
-                                                color: AppColors.primary,
+                                      // すべて見るボタン
+                                      Container(
+                                        width: double.infinity,
+                                        margin: EdgeInsets.only(top: 12),
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    WorkshopListScreen(),
                                               ),
-                                              padding: EdgeInsets.symmetric(
-                                                vertical: 12,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.primary,
+                                            side: BorderSide(
+                                              color: AppColors.primary,
                                             ),
-                                            child: Text(
-                                              'もっと見る (${allWorkshops.length - 3}件)',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 10,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                           ),
-                                        ),
-                                      // 閉じるボタン
-                                      if (_showAllWorkshops &&
-                                          allWorkshops.length > 3)
-                                        Container(
-                                          width: double.infinity,
-                                          margin: EdgeInsets.only(top: 16),
-                                          child: OutlinedButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                _showAllWorkshops = false;
-                                              });
-                                            },
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  AppColors.textSecondary,
-                                              side: BorderSide(
-                                                color: AppColors.border,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                'すべて見る (${allWorkshops.length}件)',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                               ),
-                                              padding: EdgeInsets.symmetric(
-                                                vertical: 12,
+                                              SizedBox(width: 4),
+                                              Icon(
+                                                Icons.arrow_forward_ios,
+                                                size: 12,
                                               ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              '閉じる',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                            ],
                                           ),
                                         ),
+                                      ),
                                     ],
                                   );
                                 },
@@ -410,17 +513,17 @@ class _HomePageState extends State<HomePage> {
                             ],
                           ),
 
-                          SizedBox(height: 32),
+                          SizedBox(height: 24),
 
                           // 3. 勉強会を作成するボタン
-                          SizedBox(
+                          Container(
                             width: double.infinity,
+                            height: 52,
                             child: ElevatedButton(
                               onPressed: () async {
                                 final result = await context.push(
                                   '/create-workshop',
                                 );
-                                // 勉強会作成が成功した場合、データを更新
                                 if (result == true) {
                                   _refreshData();
                                 }
@@ -428,7 +531,6 @@ class _HomePageState extends State<HomePage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -437,12 +539,12 @@ class _HomePageState extends State<HomePage> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.add_circle_outline, size: 24),
+                                  Icon(Icons.add_circle_outline, size: 22),
                                   SizedBox(width: 8),
                                   Text(
                                     '新しい勉強会を作成する',
                                     style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -451,23 +553,34 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
 
-                          SizedBox(height: 32),
+                          SizedBox(height: 24),
 
                           // 4. オススメユーザー一覧（横向き）
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'オススメユーザー',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'オススメユーザー',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.people,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                ],
                               ),
-                              SizedBox(height: 16),
+                              SizedBox(height: 12),
                               Container(
-                                height: 200,
+                                height: 180,
                                 child: FutureBuilder<List>(
                                   future: _usersFuture,
                                   builder: (context, snapshot) {
@@ -484,22 +597,60 @@ class _HomePageState extends State<HomePage> {
                                     }
                                     final users = snapshot.data ?? [];
                                     if (users.isEmpty) {
-                                      return Center(
-                                        child: Text('オススメユーザーはありません'),
+                                      return Container(
+                                        height: 120,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.border,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.people_outline,
+                                                color: AppColors.textSecondary,
+                                                size: 32,
+                                              ),
+                                              SizedBox(height: 8),
+                                              Text(
+                                                'オススメユーザーはありません',
+                                                style: TextStyle(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       );
                                     }
                                     return ListView.builder(
                                       scrollDirection: Axis.horizontal,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
                                       itemCount: users.length,
                                       itemBuilder: (context, index) {
                                         final user = users[index];
                                         return Container(
-                                          width: 150,
-                                          margin: EdgeInsets.only(right: 16),
+                                          width: 140,
+                                          margin: EdgeInsets.only(right: 12),
                                           child: GestureDetector(
                                             onTap: () {
-                                              context.push(
-                                                '/profile/${user['id']}',
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => ProfileScreen(
+                                                    userId: user['id'],
+                                                  ),
+                                                ),
                                               );
                                             },
                                             child: Card(
@@ -509,14 +660,14 @@ class _HomePageState extends State<HomePage> {
                                                     BorderRadius.circular(16),
                                               ),
                                               child: Padding(
-                                                padding: EdgeInsets.all(12),
+                                                padding: EdgeInsets.all(10),
                                                 child: Column(
                                                   mainAxisSize:
                                                       MainAxisSize.min,
                                                   children: [
-                                                    // プロフィール画像 - エラーハンドリング付き
+                                                    // プロフィール画像
                                                     CircleAvatar(
-                                                      radius: 30,
+                                                      radius: 26,
                                                       backgroundColor:
                                                           AppColors.secondary,
                                                       child:
@@ -525,8 +676,8 @@ class _HomePageState extends State<HomePage> {
                                                           ? ClipOval(
                                                               child: Image.network(
                                                                 user['profileImageUrl'],
-                                                                width: 60,
-                                                                height: 60,
+                                                                width: 52,
+                                                                height: 52,
                                                                 fit: BoxFit
                                                                     .cover,
                                                                 errorBuilder:
@@ -539,7 +690,7 @@ class _HomePageState extends State<HomePage> {
                                                                         Icons
                                                                             .person,
                                                                         size:
-                                                                            30,
+                                                                            26,
                                                                         color: Colors
                                                                             .white,
                                                                       );
@@ -580,7 +731,7 @@ class _HomePageState extends State<HomePage> {
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .bold,
-                                                                fontSize: 18,
+                                                                fontSize: 16,
                                                               ),
                                                             ),
                                                     ),
@@ -592,34 +743,33 @@ class _HomePageState extends State<HomePage> {
                                                             FontWeight.bold,
                                                         color: AppColors
                                                             .textPrimary,
+                                                        fontSize: 13,
                                                       ),
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
                                                     ),
-                                                    SizedBox(height: 6),
-                                                    Flexible(
-                                                      child: Text(
-                                                        user['department'] ??
-                                                            user['position'] ??
-                                                            'ユーザー',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: AppColors
-                                                              .textSecondary,
-                                                        ),
-                                                        maxLines: 2,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        textAlign:
-                                                            TextAlign.center,
+                                                    SizedBox(height: 4),
+                                                    Text(
+                                                      user['department'] ??
+                                                          user['position'] ??
+                                                          'ユーザー',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: AppColors
+                                                            .textSecondary,
                                                       ),
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      textAlign:
+                                                          TextAlign.center,
                                                     ),
                                                     SizedBox(height: 8),
-                                                    // レスポンシブボタン
+                                                    // フォローボタン
                                                     SizedBox(
                                                       width: double.infinity,
-                                                      height: 32,
+                                                      height: 28,
                                                       child: ElevatedButton(
                                                         onPressed: () {
                                                           // TODO: フォロー機能
@@ -631,8 +781,8 @@ class _HomePageState extends State<HomePage> {
                                                               Colors.white,
                                                           padding:
                                                               EdgeInsets.symmetric(
-                                                                horizontal: 8,
-                                                                vertical: 4,
+                                                                horizontal: 6,
+                                                                vertical: 2,
                                                               ),
                                                           shape: RoundedRectangleBorder(
                                                             borderRadius:
@@ -645,7 +795,7 @@ class _HomePageState extends State<HomePage> {
                                                         child: Text(
                                                           'フォロー',
                                                           style: TextStyle(
-                                                            fontSize: 11,
+                                                            fontSize: 10,
                                                             fontWeight:
                                                                 FontWeight.w600,
                                                           ),
@@ -665,6 +815,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
+                          SizedBox(height: 20), // 最下部の余白
                         ],
                       ),
                     ),

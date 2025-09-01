@@ -5,6 +5,7 @@ import 'package:grow_up/features/auth/screens/Register.dart';
 import 'package:grow_up/features/home/HomePage.dart';
 import 'package:grow_up/features/home/CreateWorkshopScreen.dart';
 import 'package:grow_up/features/home/ProfileScreen.dart';
+import 'package:grow_up/main.dart';
 
 final goRouter = GoRouter(
   // アプリが起動した時
@@ -15,7 +16,7 @@ final goRouter = GoRouter(
       path: '/',
       name: 'initial',
       pageBuilder: (context, state) {
-        return MaterialPage(key: state.pageKey, child: const HomePage());
+        return MaterialPage(key: state.pageKey, child: const MainScaffold());
       },
     ),
     // ex) アカウント画面
