@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
+import 'package:grow_up/features/home/widgets/learning_skills_horizontal_list.dart';
 
 typedef ProfileBackCallback = void Function();
 
@@ -15,11 +15,159 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  late Future<Map<String, dynamic>> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = HomePageApiService.getUserProfile(widget.userId);
+  }
+
+  void _refreshProfile() {
+    setState(() {
+      _profileFuture = HomePageApiService.getUserProfile(widget.userId);
+    });
+  }
+
+  // 画像アップロードダイアログを表示するメソッド
+  void _showImageUploadDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.photo_camera, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text(
+                'プロフィール画像を変更',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '新しいプロフィール画像を選択してください',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // カメラから撮影
+                  Column(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _pickImageFromCamera();
+                          },
+                          icon: Icon(
+                            Icons.camera_alt,
+                            color: AppColors.primary,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'カメラ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // ギャラリーから選択
+                  Column(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _pickImageFromGallery();
+                          },
+                          icon: Icon(
+                            Icons.photo_library,
+                            color: AppColors.secondary,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'ギャラリー',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'キャンセル',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // カメラから画像を選択
+  void _pickImageFromCamera() {
+    // TODO: image_picker パッケージを使用してカメラから画像を取得
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('カメラ機能は準備中です'),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
+  // ギャラリーから画像を選択
+  void _pickImageFromGallery() {
+    // TODO: image_picker パッケージを使用してギャラリーから画像を取得
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('ギャラリー機能は準備中です'),
+        backgroundColor: AppColors.secondary,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: FutureBuilder<Map<String, dynamic>>(
-        future: HomePageApiService.getUserProfile(widget.userId),
+        future: _profileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
@@ -37,27 +185,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
             slivers: [
               // AppBar with background image
               SliverAppBar(
-                expandedHeight: 150, // 200 → 150に減らす
-                floating: false,
+                expandedHeight: 140, // 120 → 140に増加してプロフィール画像のスペースを確保
                 pinned: true,
                 backgroundColor: AppColors.primary,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
+                leading: IconButton(
+                  icon: Container(
+                    // 新デザイン: 円形の背景を追加
                     decoration: BoxDecoration(
-                      gradient: userData['backgroundImageUrl'] != null
-                          ? null
-                          : LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [AppColors.primary, AppColors.secondary],
-                            ),
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                    child: userData['backgroundImageUrl'] != null
-                        ? Image.network(
-                            userData['backgroundImageUrl'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(Icons.arrow_back, color: Colors.white),
+                  ),
+                  onPressed: () {
+                    if (widget.onBack != null) {
+                      widget.onBack!();
+                    } else {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Stack(
+                    children: [
+                      // 背景画像またはグラデーション
+                      Positioned.fill(
+                        child: userData['backgroundImageUrl'] != null
+                            ? Image.network(
+                                userData['backgroundImageUrl'],
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          AppColors.primary,
+                                          AppColors.secondary,
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
@@ -68,79 +241,127 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          )
-                        : null,
+                              ),
+                      ),
+                      // 半透明のオーバーレイ
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.1),
+                                Colors.black.withOpacity(0.3),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // プロフィール画像を最前面に配置
+                      Positioned(
+                        bottom: -30,
+                        left: 24,
+                        child: GestureDetector(
+                          onTap: () {
+                            _showImageUploadDialog(context);
+                          },
+                          child: Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: 35,
+                                  backgroundColor: AppColors.secondary,
+                                  child: userData['profileImageUrl'] != null
+                                      ? ClipOval(
+                                          child: Image.network(
+                                            userData['profileImageUrl'],
+                                            width: 70,
+                                            height: 70,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                                  return Icon(
+                                                    Icons.person,
+                                                    size: 35,
+                                                    color: Colors.white,
+                                                  );
+                                                },
+                                          ),
+                                        )
+                                      : Text(
+                                          (userData['name'] ?? 'U')
+                                              .substring(0, 1)
+                                              .toUpperCase(),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 25,
+                                          ),
+                                        ),
+                                ),
+                                // カメラアイコン
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () {
-                    if (widget.onBack != null) {
-                      widget.onBack!(); // BottomNav用のコールバック（自分のプロフィール）
-                    } else {
-                      Navigator.of(context).pop(); // 他人のプロフィール画面から戻る
-                    }
-                  },
                 ),
               ),
 
               // Profile content
               SliverToBoxAdapter(
-                child: Transform.translate(
-                  offset: Offset(0, -40), // -50 → -40に調整
+                child: Padding(
+                  padding: EdgeInsets.only(top: 40), // 50 → 40に調整
                   child: Column(
                     children: [
-                      // Profile Avatar
-                      Container(
-                        padding: EdgeInsets.all(3), // 4 → 3に調整
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: CircleAvatar(
-                          radius: 45, // 50 → 45に減らす
-                          backgroundColor: AppColors.secondary,
-                          child: userData['profileImageUrl'] != null
-                              ? ClipOval(
-                                  child: Image.network(
-                                    userData['profileImageUrl'],
-                                    width: 90, // 100 → 90に調整
-                                    height: 90, // 100 → 90に調整
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Icon(
-                                        Icons.person,
-                                        size: 45, // 50 → 45に調整
-                                        color: Colors.white,
-                                      );
-                                    },
-                                  ),
-                                )
-                              : Text(
-                                  (userData['name'] ?? 'U')
-                                      .substring(0, 1)
-                                      .toUpperCase(),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 32, // 36 → 32に調整
-                                  ),
-                                ),
-                        ),
-                      ),
-
-                      SizedBox(height: 12), // 16 → 12に調整
-                      // User name and info
+                      // User name and info（プロフィール画像は削除）
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 24),
                         child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start, // 左寄せに変更
                           children: [
+                            // ユーザー名を左寄せで配置
                             Text(
                               userData['name'] ?? 'ユーザー',
                               style: TextStyle(
-                                fontSize: 24, // 28 → 24に調整
+                                fontSize: 24,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.textPrimary,
                               ),
@@ -159,13 +380,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
 
-                            SizedBox(height: 20), // 24 → 20に調整
+                            SizedBox(height: 20),
                             // Stats and actions row
                             Row(
                               children: [
                                 // フォロー中
                                 Expanded(
                                   child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start, // 左寄せ
                                     children: [
                                       Text(
                                         '${userData['followingCount'] ?? 0}',
@@ -189,6 +412,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 // フォロワー
                                 Expanded(
                                   child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start, // 左寄せ
                                     children: [
                                       Text(
                                         '${userData['followerCount'] ?? 0}',
@@ -251,12 +476,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             SizedBox(height: 24),
 
-                            // 学習したいスキル
-                            _buildSkillsSection(
-                              '学習したいスキル',
-                              Icons.school_outlined,
-                              userData['learningSkills'] ?? [],
-                              AppColors.primary,
+                            // 学習したいスキル (横スクロール表示)
+                            LearningSkillsHorizontalList(
+                              rawSkills:
+                                  (userData['learningSkills'] ?? []) as List,
+                              onSkillAdded: _refreshProfile,
                             ),
 
                             SizedBox(height: 24),

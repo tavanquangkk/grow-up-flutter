@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:grow_up/core/config/api_config.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080/api/v1/auth';
+  /// 環境に応じてbaseURLを自動で切り替える
+  /// 実機(iOS/Android): 開発用PCのIPアドレスを使用
+  /// シミュレータ/デスクトップ: localhostを使用
+  static String get baseUrl => ApiConfig.authBaseUrl;
 
   static Future<Map<String, dynamic>> register(
     String name,

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grow_up/features/auth/screens/Login.dart';
 import 'package:grow_up/features/auth/screens/Register.dart';
-import 'package:grow_up/features/home/HomePage.dart';
 import 'package:grow_up/features/home/CreateWorkshopScreen.dart';
 import 'package:grow_up/features/home/ProfileScreen.dart';
+import 'package:grow_up/features/home/WorkshopListScreen.dart';
 import 'package:grow_up/main.dart';
 
 final goRouter = GoRouter(
@@ -43,6 +43,17 @@ final goRouter = GoRouter(
         return MaterialPage(
           key: state.pageKey,
           child: const CreateWorkshopScreen(),
+        );
+      },
+    ),
+    // 勉強会一覧画面
+    GoRoute(
+      path: '/workshop-list',
+      name: 'workshop-list',
+      pageBuilder: (context, state) {
+        return MaterialPage(
+          key: state.pageKey,
+          child: const WorkshopListScreen(),
         );
       },
     ),

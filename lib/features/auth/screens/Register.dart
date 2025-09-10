@@ -53,7 +53,12 @@ class _SignupState extends State<Register> {
       builder: (_) => AlertDialog(
         title: Text('エラー', style: TextStyle(color: AppColors.error)),
         content: Text(message),
-        actions: [TextButton(onPressed: () => {}, child: Text('OK'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
@@ -64,7 +69,15 @@ class _SignupState extends State<Register> {
       builder: (_) => AlertDialog(
         title: Text('成功', style: TextStyle(color: AppColors.success)),
         content: Text(message),
-        actions: [TextButton(onPressed: () {}, child: Text('OK'))],
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // close dialog
+              context.go('/login');
+            },
+            child: const Text('ログインへ'),
+          ),
+        ],
       ),
     );
   }
@@ -89,8 +102,8 @@ class _SignupState extends State<Register> {
                     Row(
                       children: [
                         IconButton(
-                          onPressed: () => {
-                            // 戻るボタンでログイン画面に戻る
+                          onPressed: () {
+                            context.go('/login');
                           },
                           icon: Icon(
                             Icons.arrow_back_ios,
