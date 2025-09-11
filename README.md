@@ -12,6 +12,8 @@
 - フォロー / フォロワー一覧 + 動的カウント
 - DM ボタン（相手メール表示 & コピー）
 - アクセス & リフレッシュトークンによる認証維持
+- 自分のプロフィール編集 (名前 / 部署 / 役職 / 自己紹介)
+ - プロフィール画像変更（ギャラリー / カメラ アップロード）
 
 ## 🛠 技術スタック
 | 分類 | 使用技術 |
@@ -102,6 +104,82 @@ flutter run
 | リフレッシュ | POST | /api/v1/auth/refresh |
 | 自ユーザ Followings | GET | /api/v1/users/me/followings |
 | 自ユーザ Followers | GET | /api/v1/users/me/followers |
+| 指定ユーザーをフォロー | POST | /api/v1/users/me/follow/{id} |
+| 指定ユーザーを解除 | DELETE | /api/v1/users/me/follow/{id} |
+
+### フォロー機能実装メモ
+`RecommendedUsersSection` で以下を実装:
+- 初期表示時に `HomePageApiService.fetchFollowingIds()` で自分が既にフォローしているユーザーID集合を取得し O(1) 判定
+- フォローボタン: 押下で即座に楽観的に「フォロー中」表示へ変更 → API 失敗時 SnackBar + ロールバック
+- 解除ボタン (Outlined / グレー): 押下でフォロー解除を楽観的反映 → 失敗時ロールバック
+- 個別ユーザー処理中はインジケータ表示・他操作無効化 (`_processingUserId`)
+- フォロー中集合は `Set<String>` で保持し重複防止と高速判定
+
+利用箇所差し替え例 (旧):
+```dart
+RecommendedUsersSection(future: HomePageApiService.getRecommendedUsers())
+```
+※ 既存引数そのまま利用可能 / 追加設定不要。
+
+エラーパターン:
+| ケース | UI 挙動 |
+|--------|---------|
+| フォローAPI 4xx/5xx | SnackBar: フォローに失敗しました + 元に戻す |
+| 解除API 失敗 | SnackBar: フォロー解除に失敗しました + 元に戻す |
+| 初期 followingIds 取得失敗 | すべて未フォロー表示 (ログに警告) |
+
+### プロフィール編集機能
+`ProfileScreen` (自分の画面時のみ) 右側に編集アイコンが表示され、`EditProfileScreen` へ遷移。
+
+更新API:
+```
+PUT /api/v1/users/me
+{
+	"name": "のび太君",
+	"department": "開発部",
+	"position": "バックエンドエンジニア",
+	"introduction": "Spring BootでのAPI開発が得意です。最近はFlutterを勉強中。"
+}
+```
+成功レスポンス例:
+```
+{
+	"status": "success",
+	"message": "更新に成功しました",
+	"data": { ... 更新後プロフィール ... }
+}
+```
+フロー:
+1. アイコンタップ → `EditProfileScreen` へ (初期値は取得済 userData)
+2. 保存押下でバリデーション → `HomePageApiService.updateMyProfile()` 実行
+3. 成功: SnackBar 表示 + `Navigator.pop(updatedData)` → 呼び出し元で `_refreshProfile()` 再取得
+4. 失敗: SnackBar でエラー表示 (楽観更新なし)
+
+バリデーション: 名前必須 / 他任意。キャンセルは戻るボタン。
+
+### プロフィール画像変更
+フロー:
+1. 自分のプロフィール画像をタップ
+2. 下からボトムシート: ギャラリー / カメラ いずれか選択
+3. プレビュー表示後「更新する」押下 → `POST /api/v1/users/me/avatar`
+4. 成功: SnackBar + 再取得 (画像反映)
+5. 失敗: SnackBar でエラー
+
+実装ポイント:
+- MultipartRequest (フィールド名: `file`)
+- 画像は maxWidth 1024 / imageQuality 85 で軽量化
+- 失敗メッセージはサーバー `message` 優先
+- 他人プロフィールではアップロード UI 非表示
+
+トラブルシュート:
+| 症状 | 対処 |
+|------|------|
+| 画像選択シートで何も起きない (iOS) | Info.plist に Camera / Photo Library UsageDescription があるか確認 |
+| Permission Denied (Android) | AndroidManifest に CAMERA / READ_MEDIA_IMAGES 権限が入っているか、設定→アプリで許可 |
+| 撮影後戻っても反映されない | 画像取得時 null (キャンセル) の可能性。ログ / SnackBar を確認 |
+| 大きい画像で失敗 | リサイズ済みか (maxWidth 1024) を確認し再試行 |
+
+
 
 ## ⚠️ エラーハンドリング戦略
 | 状況 | 挙動 |

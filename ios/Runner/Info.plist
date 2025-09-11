@@ -50,5 +50,11 @@
 			<key>NSAllowsArbitraryLoads</key>
 			<true />
 		</dict>
+		<key>NSCameraUsageDescription</key>
+		<string>プロフィール画像を撮影するためカメラを使用します。</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>プロフィール画像を選択するため写真ライブラリへアクセスします。</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>撮影した写真を保存するため写真ライブラリへの書き込み権限が必要です。</string>
 	</dict>
 </plist>

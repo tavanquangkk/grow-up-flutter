@@ -387,4 +387,146 @@ class HomePageApiService {
       rethrow;
     }
   }
+
+  // ================= Follow Actions =================
+  /// 指定ユーザーをフォロー
+  static Future<void> followUser(String userId) async {
+    try {
+      final token = await ApiService.getToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/users/me/follow/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        String msg = 'フォローに失敗しました (${response.statusCode})';
+        if (response.body.isNotEmpty) {
+          try {
+            final body = jsonDecode(response.body);
+            msg = body['message'] ?? msg;
+          } catch (_) {}
+        }
+        throw Exception(msg);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// 指定ユーザーのフォロー解除
+  static Future<void> unfollowUser(String userId) async {
+    try {
+      final token = await ApiService.getToken();
+      final response = await http.delete(
+        Uri.parse('$baseUrl/users/me/follow/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        String msg = 'フォロー解除に失敗しました (${response.statusCode})';
+        if (response.body.isNotEmpty) {
+          try {
+            final body = jsonDecode(response.body);
+            msg = body['message'] ?? msg;
+          } catch (_) {}
+        }
+        throw Exception(msg);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// 現在フォローしているユーザーID一覧を取得 (高速判定用)
+  static Future<Set<String>> fetchFollowingIds() async {
+    try {
+      final list = await getFollowingUsers();
+      return list
+          .map((e) => (e is Map && e['id'] != null) ? e['id'].toString() : null)
+          .whereType<String>()
+          .toSet();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ================= Profile (Me) =================
+  /// 現在ログイン中ユーザー自身のプロフィール取得
+  static Future<Map<String, dynamic>> fetchMyProfile() async {
+    try {
+      final response = await ApiService.getWithAuth("$baseUrl/users/me");
+      final data = _response(response);
+      return Map<String, dynamic>.from(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// 自分のプロフィールを更新
+  /// 成功時: サーバーレスポンス(JSON全体)を返す
+  static Future<Map<String, dynamic>> updateMyProfile({
+    required String name,
+    required String department,
+    required String position,
+    required String introduction,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      final body = {
+        'name': name,
+        'department': department,
+        'position': position,
+        'introduction': introduction,
+      };
+      final response = await http.put(
+        Uri.parse('$baseUrl/users/me'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+      if (response.body.isEmpty) {
+        if (response.statusCode == 200) {
+          return {'status': 'success', 'message': '更新に成功しました', 'data': body};
+        }
+        throw Exception('プロフィール更新に失敗: ${response.statusCode}');
+      }
+      final jsonResp = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(jsonResp['message'] ?? 'プロフィール更新に失敗');
+      }
+      return Map<String, dynamic>.from(jsonResp);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// プロフィール画像更新 (multipart)
+  /// filePath: 端末内のローカルパス
+  static Future<Map<String, dynamic>> updateMyAvatar(String filePath) async {
+    try {
+      final token = await ApiService.getToken();
+      final uri = Uri.parse('$baseUrl/users/me/avatar');
+      final request = http.MultipartRequest('PUT', uri);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      if (response.body.isEmpty) {
+        throw Exception('サーバー応答が空です (${response.statusCode})');
+      }
+      final jsonResp = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(jsonResp['message'] ?? 'アバター更新に失敗しました');
+      }
+      return Map<String, dynamic>.from(jsonResp);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
