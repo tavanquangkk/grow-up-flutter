@@ -4,6 +4,7 @@ import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
 import 'package:grow_up/features/home/widgets/learning_skills_horizontal_list.dart';
 import 'package:grow_up/features/home/FollowingUsersScreen.dart';
+import 'package:grow_up/features/home/FollowerUsersScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 typedef ProfileBackCallback = void Function();
@@ -21,12 +22,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Future<Map<String, dynamic>> _profileFuture;
   String? _currentUserId;
   int? _actualFollowingCount;
+  int? _actualFollowerCount;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = HomePageApiService.getUserProfile(widget.userId);
-    _loadCurrentUserId().then((_) => _loadFollowingCount());
+    _loadCurrentUserId().then((_) {
+      _loadFollowingCount();
+      _loadFollowerCount();
+    });
   }
 
   Future<void> _loadCurrentUserId() async {
@@ -51,6 +56,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadFollowerCount() async {
+    // 自分のプロフィールの場合のみフォロワーの数を取得
+    if (_isMyProfile) {
+      try {
+        final followerUsers = await HomePageApiService.getFollowerUsers();
+        setState(() {
+          _actualFollowerCount = followerUsers.length;
+        });
+      } catch (e) {
+        // エラーの場合はAPIから取得した値を使用
+        print('フォロワー一覧の取得に失敗: $e');
+      }
+    }
+  }
+
   bool get _isMyProfile =>
       _currentUserId != null && _currentUserId == widget.userId;
 
@@ -62,11 +82,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return userData['followingCount'] ?? 0;
   }
 
+  // フォロワーの数を取得する（実際の数が取得できていればそれを使用、そうでなければAPIから取得した値を使用）
+  int _getFollowerCount(Map<String, dynamic> userData) {
+    if (_isMyProfile && _actualFollowerCount != null) {
+      return _actualFollowerCount!;
+    }
+    return userData['followerCount'] ?? 0;
+  }
+
   void _refreshProfile() {
     setState(() {
       _profileFuture = HomePageApiService.getUserProfile(widget.userId);
     });
     _loadFollowingCount(); // フォロー中の数も更新
+    _loadFollowerCount(); // フォロワーの数も更新
   }
 
   // 画像アップロードダイアログを表示するメソッド
@@ -571,6 +600,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             );
                                             // 画面から戻った時にフォロー中の数を更新
                                             _loadFollowingCount();
+                                            _loadFollowerCount(); // フォロワー数も更新
                                           }
                                         : null,
                                     child: Container(
@@ -635,26 +665,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                                 // フォロワー
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start, // 左寄せ
-                                    children: [
-                                      Text(
-                                        '${userData['followerCount'] ?? 0}',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textPrimary,
-                                        ),
+                                  child: GestureDetector(
+                                    onTap:
+                                        _isMyProfile &&
+                                            _getFollowerCount(userData) > 0
+                                        ? () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    FollowerUsersScreen(),
+                                              ),
+                                            );
+                                            // 画面から戻った時にフォロワーの数を更新
+                                            _loadFollowerCount();
+                                          }
+                                        : null,
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 8,
                                       ),
-                                      Text(
-                                        'フォロワー',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppColors.textSecondary,
-                                        ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        color:
+                                            _isMyProfile &&
+                                                _getFollowerCount(userData) > 0
+                                            ? AppColors.primary.withOpacity(
+                                                0.05,
+                                              )
+                                            : Colors.transparent,
                                       ),
-                                    ],
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start, // 左寄せ
+                                        children: [
+                                          Text(
+                                            '${_getFollowerCount(userData)}',
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  _isMyProfile &&
+                                                      _getFollowerCount(
+                                                            userData,
+                                                          ) >
+                                                          0
+                                                  ? AppColors.primary
+                                                  : AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'フォロワー',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              if (_isMyProfile &&
+                                                  _getFollowerCount(userData) >
+                                                      0)
+                                                Icon(
+                                                  Icons.chevron_right,
+                                                  size: 16,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
 

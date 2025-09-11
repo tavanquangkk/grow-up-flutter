@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
 import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/utils/apis/auth_api_service.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
@@ -16,6 +18,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  String? _lastError; // 画面下部に直近エラー表示用
+
+  @override
+  void initState() {
+    super.initState();
+    // 診断ログを有効化 (必要なら false)
+    ApiService.enableVerboseLogging(true);
+    // 現在の環境出力
+    ApiService.debugPrintEnv();
+  }
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -23,20 +35,39 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final res = await ApiService.login(
-        _emailController.text,
-        _passwordController.text,
-      );
+      final email = _emailController.text.trim();
+      final pass = _passwordController.text;
+      debugPrint('[Login] start login email=$email');
+      // 事前 ping (疎通確認) - 失敗しても続行
+      ApiService.ping('/api/v1/auth/login');
 
-      if (res['status'] == 'success') {
-        // ログイン成功時
+      final res = await ApiService.login(email, pass);
+      debugPrint('[Login] response raw=$res');
+
+      if (res['status'] == 'success' && res['data'] != null) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userId', res['data']['id']);
-        context.go("/");
+        final userId = res['data']['id'];
+        if (userId is String) {
+          await prefs.setString('userId', userId);
+        }
+        debugPrint('[Login] success userId=$userId');
+        if (mounted) context.go("/");
       } else {
-        _showErrorDialog(res['message'] ?? 'ログインに失敗しました');
+        final msg = res['message'] ?? 'ログインに失敗しました (status=${res['status']})';
+        _lastError = msg;
+        _showErrorDialog(msg);
       }
+    } on SocketException catch (e) {
+      _lastError = 'ソケットエラー: ${e.osError?.message ?? e.message}';
+      _showErrorDialog('サーバーに接続できません (オフラインの可能性)');
+    } on TimeoutException catch (e) {
+      _lastError = 'タイムアウト: ${e.message ?? ''}';
+      _showErrorDialog('サーバー応答がタイムアウトしました');
+    } on FormatException catch (e) {
+      _lastError = 'JSON形式不正: ${e.message}';
+      _showErrorDialog('サーバー応答の形式が不正です');
     } catch (e) {
+      _lastError = '不明なエラー: $e';
       _showErrorDialog('ネットワークエラーが発生しました');
     } finally {
       setState(() => _isLoading = false);
@@ -237,6 +268,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : Text('ログイン'),
                     ),
+
+                    if (_lastError != null) ...[
+                      SizedBox(height: 12),
+                      Text(
+                        _lastError!,
+                        style: TextStyle(color: AppColors.error, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
 
                     SizedBox(height: 32),
 

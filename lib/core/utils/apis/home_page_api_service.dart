@@ -364,4 +364,27 @@ class HomePageApiService {
       rethrow;
     }
   }
+
+  // フォロワーのユーザー一覧を取得
+  static Future<List<dynamic>> getFollowerUsers() async {
+    try {
+      final token = await ApiService.getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/me/followers'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      final data = _response(response);
+      if (data['status'] == 'success') {
+        return data['data'] ?? [];
+      } else {
+        throw Exception(data['message'] ?? 'フォロワー一覧の取得に失敗しました');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
