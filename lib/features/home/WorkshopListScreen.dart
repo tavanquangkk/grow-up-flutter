@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
 import 'package:grow_up/features/home/WorkshopDetailDialog.dart';
@@ -44,7 +45,7 @@ class _WorkshopListScreenState extends State<WorkshopListScreen> {
         shadowColor: AppColors.border,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.go('/'),
         ),
       ),
       body: SafeArea(

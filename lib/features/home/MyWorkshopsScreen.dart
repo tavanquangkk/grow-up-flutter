@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
 import 'package:grow_up/features/home/WorkshopDetailDialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyWorkshopsScreen extends StatefulWidget {
   const MyWorkshopsScreen({Key? key}) : super(key: key);
@@ -17,6 +19,11 @@ class _MyWorkshopsScreenState extends State<MyWorkshopsScreen> {
   void initState() {
     super.initState();
     _refreshData();
+  }
+
+  Future<String?> getMyUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('userId');
   }
 
   void _refreshData() {
@@ -51,8 +58,11 @@ class _MyWorkshopsScreenState extends State<MyWorkshopsScreen> {
         elevation: 1,
         shadowColor: AppColors.border,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          icon: Icon(
+            Icons.arrow_back,
+            color: const Color.fromARGB(0, 249, 250, 255),
+          ),
+          onPressed: () => context.go("/"),
         ),
         actions: [
           Container(
@@ -166,7 +176,7 @@ class _MyWorkshopsScreenState extends State<MyWorkshopsScreen> {
                     SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.pop(context, 'create_workshop');
+                        context.go('/create_workshop');
                       },
                       icon: Icon(Icons.add),
                       label: Text('勉強会を作成'),
@@ -206,18 +216,19 @@ class _MyWorkshopsScreenState extends State<MyWorkshopsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: InkWell(
-                        onTap: () {
+                        onTap: () async {
                           final dateValue = workshop['date'];
                           final formattedDate = dateValue != null
                               ? _formatDate(dateValue)
                               : '';
-
+                          final myUserId = await getMyUserId();
                           showDialog(
                             context: context,
                             builder: (BuildContext context) {
                               return WorkshopDetailDialog(
                                 workshop: workshop,
                                 formattedDate: formattedDate,
+                                currentUserId: myUserId,
                               );
                             },
                           );
@@ -360,7 +371,7 @@ class _MyWorkshopsScreenState extends State<MyWorkshopsScreen> {
                                         ),
                                         SizedBox(width: 4),
                                         Text(
-                                          '主催者',
+                                          workshop['host']['name'] ?? '',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.primary,

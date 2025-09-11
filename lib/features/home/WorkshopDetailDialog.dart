@@ -5,11 +5,13 @@ import 'package:grow_up/core/theme/app_colors.dart';
 class WorkshopDetailDialog extends StatelessWidget {
   final Map<String, dynamic> workshop;
   final String formattedDate;
+  final String? currentUserId;
 
   const WorkshopDetailDialog({
     Key? key,
     required this.workshop,
     this.formattedDate = '', // デフォルト値を設定
+    this.currentUserId,
   }) : super(key: key);
 
   @override
@@ -20,6 +22,7 @@ class WorkshopDetailDialog extends StatelessWidget {
         : <String, dynamic>{};
     final hostName = hostMap['name'] ?? '未設定';
     final hostEmail = hostMap['email'] ?? '';
+    final isMine = currentUserId != null && hostMap['id'] == currentUserId;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -98,63 +101,66 @@ class WorkshopDetailDialog extends StatelessWidget {
               SizedBox(height: 16),
 
               // 開催者情報
-              _buildInfoRow(Icons.person, '開催者', hostName),
-              if (hostEmail.isNotEmpty) ...[
-                SizedBox(height: 8),
-                _buildInfoRow(Icons.email, 'メール', hostEmail),
+              if (!isMine) ...[
+                _buildInfoRow(Icons.person, '開催者', hostName),
+                if (hostEmail.isNotEmpty) ...[
+                  SizedBox(height: 8),
+                  _buildInfoRow(Icons.email, 'メール', hostEmail),
+                ],
               ],
 
               SizedBox(height: 24),
 
               // アクションボタン
-              Row(
-                children: [
-                  // 開催者へ連絡するボタン
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: Icon(Icons.mail_outline),
-                      label: Text('開催者へ連絡'),
-                      onPressed: () {
-                        if (hostEmail.isNotEmpty) {
-                          Clipboard.setData(ClipboardData(text: hostEmail));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('メールアドレスをコピーしました')),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('開催者のメールアドレスが設定されていません')),
-                          );
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: BorderSide(color: AppColors.primary),
-                        padding: EdgeInsets.symmetric(vertical: 12),
+              if (!isMine)
+                Row(
+                  children: [
+                    // 開催者へ連絡するボタン
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: Icon(Icons.mail_outline),
+                        label: Text('開催者へ連絡'),
+                        onPressed: () {
+                          if (hostEmail.isNotEmpty) {
+                            Clipboard.setData(ClipboardData(text: hostEmail));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('メールアドレスをコピーしました')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('開催者のメールアドレスが設定されていません')),
+                            );
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(color: AppColors.primary),
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 12),
-                  // 参加するボタン
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(Icons.check_circle_outline),
-                      label: Text('参加する'),
-                      onPressed: () {
-                        // TODO: 参加機能の実装
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text('参加登録しました')));
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12),
+                    SizedBox(width: 12),
+                    // 参加するボタン
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.check_circle_outline),
+                        label: Text('参加する'),
+                        onPressed: () {
+                          // TODO: 参加機能の実装
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('参加登録しました')));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         ),

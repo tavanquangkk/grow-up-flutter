@@ -7,6 +7,7 @@ import 'package:grow_up/features/home/HomePage.dart';
 import 'package:grow_up/features/home/MyWorkshopsScreen.dart';
 import 'package:grow_up/features/home/ProfileScreen.dart';
 import 'package:grow_up/core/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,19 +22,34 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   int _selectedIndex = 0;
-  final String myUserId = 'me'; // TODO: ログインユーザーID取得
+  String? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserId();
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentUserId = prefs.getString('userId');
+    });
+  }
 
   List<Widget> get _screens => [
     HomePage(),
     MyWorkshopsScreen(),
-    ProfileScreen(
-      userId: 'me',
-      onBack: () {
-        setState(() {
-          _selectedIndex = 0;
-        });
-      },
-    ),
+    _currentUserId != null
+        ? ProfileScreen(
+            userId: _currentUserId!,
+            onBack: () {
+              setState(() {
+                _selectedIndex = 0;
+              });
+            },
+          )
+        : Center(child: CircularProgressIndicator()),
   ];
 
   @override

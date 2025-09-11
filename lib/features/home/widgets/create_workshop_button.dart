@@ -14,6 +14,7 @@ class CreateWorkshopButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: () async {
           final result = await context.push('/create-workshop');
+
           if (result == true) {
             await onCreated?.call();
           }

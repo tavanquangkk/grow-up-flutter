@@ -9,6 +9,7 @@ class LearningSkillsHorizontalList extends StatelessWidget {
   final double height;
   final VoidCallback? onMore; // optional action (e.g., navigate to edit)
   final VoidCallback? onSkillAdded; // notify parent to refresh profile
+  final bool isMyProfile; // whether this is the current user's profile
 
   const LearningSkillsHorizontalList({
     super.key,
@@ -18,6 +19,7 @@ class LearningSkillsHorizontalList extends StatelessWidget {
     this.height = 58,
     this.onMore,
     this.onSkillAdded,
+    this.isMyProfile = true, // default to true for backward compatibility
   });
 
   List<String> _normalize(List<dynamic> input) {
@@ -55,23 +57,24 @@ class LearningSkillsHorizontalList extends StatelessWidget {
                 ),
               ),
             ),
-            // Add skill button
-            IconButton(
-              tooltip: 'スキルを追加',
-              onPressed: () => _openAddDialog(context),
-              icon: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(6),
-                child: const Icon(
-                  Icons.add,
-                  size: 18,
-                  color: AppColors.primary,
+            // Add skill button (only for own profile)
+            if (isMyProfile)
+              IconButton(
+                tooltip: 'スキルを追加',
+                onPressed: () => _openAddDialog(context),
+                icon: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: const Icon(
+                    Icons.add,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
-            ),
             if (onMore != null)
               TextButton(
                 onPressed: onMore,
@@ -208,17 +211,41 @@ extension _AddSkillDialog on LearningSkillsHorizontalList {
                                       .toLowerCase() ==
                                   n.toLowerCase(),
                             );
+                            final isSelected = selected == n;
                             return ListTile(
                               dense: true,
-                              title: Text(n),
+                              title: Text(
+                                n,
+                                style: TextStyle(
+                                  color: isSelected ? AppColors.primary : null,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
                               leading: already
                                   ? const Icon(
                                       Icons.check_circle,
                                       color: Colors.green,
                                       size: 20,
                                     )
-                                  : const Icon(Icons.circle_outlined, size: 20),
-                              selected: selected == n,
+                                  : (isSelected
+                                        ? Icon(
+                                            Icons.radio_button_checked,
+                                            color: AppColors.primary,
+                                            size: 20,
+                                          )
+                                        : const Icon(
+                                            Icons.circle_outlined,
+                                            size: 20,
+                                          )),
+                              selected: isSelected,
+                              selectedTileColor: AppColors.primary.withOpacity(
+                                0.08,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               onTap: already
                                   ? null
                                   : () => setState(() => selected = n),
@@ -239,12 +266,10 @@ extension _AddSkillDialog on LearningSkillsHorizontalList {
                         ? null
                         : () async {
                             try {
-                              // show progress inline by disabling buttons (setState via selected null after?)
                               await HomePageApiService.addLearningSkill(
                                 selected!,
                               );
                               if (ctx.mounted) Navigator.of(ctx).pop();
-                              // notify parent
                               onSkillAdded?.call();
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(

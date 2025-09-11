@@ -62,7 +62,9 @@ class ApiService {
   }
 
   static Future<void> logout() async {
-    await removeToken();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('userId'); // ユーザーIDも削除
   }
 
   static Future<http.Response> getWithAuth(String url) async {

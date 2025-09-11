@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/utils/apis/auth_api_service.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,6 +29,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (res['status'] == 'success') {
+        // ログイン成功時
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userId', res['data']['id']);
         context.go("/");
       } else {
         _showErrorDialog(res['message'] ?? 'ログインに失敗しました');

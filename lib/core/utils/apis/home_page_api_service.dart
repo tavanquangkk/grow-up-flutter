@@ -271,7 +271,7 @@ class HomePageApiService {
 
   // ================= Skills APIs =================
   static Future<List<Map<String, dynamic>>> getSkillsList() async {
-    final response = await ApiService.getWithAuth("$baseUrl/skillslist");
+    final response = await ApiService.getWithAuth("$baseUrl/skills");
     final jsonResponse = _response(response);
     final data = jsonResponse['data'];
     if (data is List) {
@@ -306,6 +306,59 @@ class HomePageApiService {
           msg = 'スキル追加に失敗しました (${response.statusCode})';
         }
         throw Exception(msg);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  static Future<void> addTeachableSkill(String skillName) async {
+    try {
+      final token = await ApiService.getToken();
+      final response = await http.post(
+        Uri.parse("$baseUrl/users/me/teachableSkills"),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(skillName), // raw string body (JSON string)
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        String msg;
+        if (response.body.isNotEmpty) {
+          try {
+            msg = (jsonDecode(response.body)['message'] ?? 'シェアスキル追加に失敗しました')
+                .toString();
+          } catch (_) {
+            msg = 'シェアスキル追加に失敗しました (${response.statusCode})';
+          }
+        } else {
+          msg = 'シェアスキル追加に失敗しました (${response.statusCode})';
+        }
+        throw Exception(msg);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // フォロー中のユーザー一覧を取得
+  static Future<List<dynamic>> getFollowingUsers() async {
+    try {
+      final token = await ApiService.getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/me/followings'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      final data = _response(response);
+      if (data['status'] == 'success') {
+        return data['data'] ?? [];
+      } else {
+        throw Exception(data['message'] ?? 'フォロー中一覧の取得に失敗しました');
       }
     } catch (e) {
       rethrow;

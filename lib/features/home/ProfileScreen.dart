@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:grow_up/core/theme/app_colors.dart';
 import 'package:grow_up/core/utils/apis/home_page_api_service.dart';
 import 'package:grow_up/features/home/widgets/learning_skills_horizontal_list.dart';
+import 'package:grow_up/features/home/FollowingUsersScreen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 typedef ProfileBackCallback = void Function();
 
@@ -16,17 +19,54 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late Future<Map<String, dynamic>> _profileFuture;
+  String? _currentUserId;
+  int? _actualFollowingCount;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = HomePageApiService.getUserProfile(widget.userId);
+    _loadCurrentUserId().then((_) => _loadFollowingCount());
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentUserId = prefs.getString('userId');
+    });
+  }
+
+  Future<void> _loadFollowingCount() async {
+    // 自分のプロフィールの場合のみフォロー中の数を取得
+    if (_isMyProfile) {
+      try {
+        final followingUsers = await HomePageApiService.getFollowingUsers();
+        setState(() {
+          _actualFollowingCount = followingUsers.length;
+        });
+      } catch (e) {
+        // エラーの場合はAPIから取得した値を使用
+        print('フォロー中一覧の取得に失敗: $e');
+      }
+    }
+  }
+
+  bool get _isMyProfile =>
+      _currentUserId != null && _currentUserId == widget.userId;
+
+  // フォロー中の数を取得する（実際の数が取得できていればそれを使用、そうでなければAPIから取得した値を使用）
+  int _getFollowingCount(Map<String, dynamic> userData) {
+    if (_isMyProfile && _actualFollowingCount != null) {
+      return _actualFollowingCount!;
+    }
+    return userData['followingCount'] ?? 0;
   }
 
   void _refreshProfile() {
     setState(() {
       _profileFuture = HomePageApiService.getUserProfile(widget.userId);
     });
+    _loadFollowingCount(); // フォロー中の数も更新
   }
 
   // 画像アップロードダイアログを表示するメソッド
@@ -160,6 +200,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text('ギャラリー機能は準備中です'),
         backgroundColor: AppColors.secondary,
       ),
+    );
+  }
+
+  // 連絡先ダイアログを表示するメソッド
+  void _showContactDialog(BuildContext context, Map<String, dynamic> userData) {
+    final userEmail = userData['email'] ?? '';
+    final userName = userData['name'] ?? 'ユーザー';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.email, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text(
+                '連絡先情報',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${userName}さんへの連絡方法',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'こちらのメールに連絡してくださいね✉️',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        userEmail.isNotEmpty ? userEmail : 'メールアドレスが設定されていません',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: userEmail.isNotEmpty
+                              ? AppColors.textPrimary
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    if (userEmail.isNotEmpty)
+                      IconButton(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: userEmail));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('メールアドレスをコピーしました'),
+                              backgroundColor: AppColors.primary,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.copy,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        tooltip: 'コピー',
+                      ),
+                  ],
+                ),
+              ),
+              if (userEmail.isNotEmpty) ...[
+                SizedBox(height: 12),
+                Text(
+                  '💡 タップしてメールアドレスをコピーできます',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                '閉じる',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            if (userEmail.isNotEmpty)
+              ElevatedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: userEmail));
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('メールアドレスをコピーしました'),
+                      backgroundColor: AppColors.primary,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: Icon(Icons.copy, size: 18),
+                label: Text('コピー'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -386,26 +557,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 // フォロー中
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start, // 左寄せ
-                                    children: [
-                                      Text(
-                                        '${userData['followingCount'] ?? 0}',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textPrimary,
-                                        ),
+                                  child: GestureDetector(
+                                    onTap:
+                                        _isMyProfile &&
+                                            _getFollowingCount(userData) > 0
+                                        ? () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    FollowingUsersScreen(),
+                                              ),
+                                            );
+                                            // 画面から戻った時にフォロー中の数を更新
+                                            _loadFollowingCount();
+                                          }
+                                        : null,
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 8,
                                       ),
-                                      Text(
-                                        'フォロー中',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppColors.textSecondary,
-                                        ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        color:
+                                            _isMyProfile &&
+                                                _getFollowingCount(userData) > 0
+                                            ? AppColors.primary.withOpacity(
+                                                0.05,
+                                              )
+                                            : Colors.transparent,
                                       ),
-                                    ],
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start, // 左寄せ
+                                        children: [
+                                          Text(
+                                            '${_getFollowingCount(userData)}',
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  _isMyProfile &&
+                                                      _getFollowingCount(
+                                                            userData,
+                                                          ) >
+                                                          0
+                                                  ? AppColors.primary
+                                                  : AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'フォロー中',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              if (_isMyProfile &&
+                                                  _getFollowingCount(userData) >
+                                                      0)
+                                                Icon(
+                                                  Icons.chevron_right,
+                                                  size: 16,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
 
@@ -434,26 +658,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
 
-                                // DMボタン
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      // TODO: DM機能
-                                    },
-                                    icon: Icon(Icons.message, size: 18),
-                                    label: Text('DM'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                // DMボタン (他の人の場合のみ表示)
+                                if (!_isMyProfile)
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        _showContactDialog(context, userData);
+                                      },
+                                      icon: Icon(Icons.message, size: 18),
+                                      label: Text('DM'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ],
@@ -481,12 +708,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               rawSkills:
                                   (userData['learningSkills'] ?? []) as List,
                               onSkillAdded: _refreshProfile,
+                              isMyProfile: _isMyProfile,
                             ),
 
                             SizedBox(height: 24),
 
                             // シェアできるスキル
-                            _buildSkillsSection(
+                            _buildTeachableSkillsSection(
                               'シェアできるスキル',
                               Icons.share_outlined,
                               userData['teachableSkills'] ?? [],
@@ -548,12 +776,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSkillsSection(
+  Widget _buildTeachableSkillsSection(
     String title,
     IconData icon,
     List skills,
     Color color,
   ) {
+    // skills: List<Map> or List<String>
+    // 1. Extract skill names, deduplicate, sort
+    final skillNames = skills
+        .map(
+          (s) => s is Map && s['name'] != null
+              ? s['name'].toString().replaceAll('"', '').trim()
+              : s.toString().replaceAll('"', '').trim(),
+        )
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList();
+    skillNames.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -561,14 +802,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(icon, color: color, size: 24),
             SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
+            // Add teachable skill button (only for own profile)
+            if (_isMyProfile)
+              IconButton(
+                tooltip: 'スキルを追加',
+                onPressed: () => _openAddTeachableSkillDialog(context),
+                icon: Container(
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(Icons.add, size: 18, color: color),
+                ),
+              ),
           ],
         ),
         SizedBox(height: 12),
@@ -580,7 +837,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.border),
           ),
-          child: skills.isEmpty
+          child: skillNames.isEmpty
               ? Text(
                   '${title}はまだ設定されていません',
                   style: TextStyle(
@@ -592,30 +849,163 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: skills.map<Widget>((skill) {
-                    return Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: color.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        skill.toString(),
+                  children: skillNames.map<Widget>((skillName) {
+                    return Chip(
+                      avatar: Icon(Icons.star, color: color, size: 18),
+                      label: Text(
+                        skillName,
                         style: TextStyle(
                           fontSize: 14,
                           color: color,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      backgroundColor: color.withOpacity(0.08),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      side: BorderSide(color: color.withOpacity(0.3)),
                     );
                   }).toList(),
                 ),
         ),
       ],
     );
+  }
+
+  Future<void> _openAddTeachableSkillDialog(BuildContext context) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+      final list = await HomePageApiService.getSkillsList();
+      if (context.mounted) Navigator.of(context).pop(); // close loader
+
+      // Normalize & deduplicate (case-insensitive)
+      final names = <String>{};
+      for (final m in list) {
+        final raw = m['name']?.toString() ?? '';
+        final cleaned = raw.replaceAll('"', '').trim();
+        if (cleaned.isNotEmpty) names.add(cleaned);
+      }
+      final allNames = names.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+      String? selected;
+
+      if (!context.mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return StatefulBuilder(
+            builder: (ctx, setState) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: const Text('シェアできるスキルを追加'),
+                content: SizedBox(
+                  width: 340,
+                  height: 300,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '追加したいスキルを選択',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: allNames.length,
+                          itemBuilder: (_, i) {
+                            final n = allNames[i];
+                            // Check against current teachableSkills in _profileFuture
+                            final isSelected = selected == n;
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                n,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? AppColors.secondary
+                                      : null,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              leading: isSelected
+                                  ? Icon(
+                                      Icons.radio_button_checked,
+                                      color: AppColors.secondary,
+                                      size: 20,
+                                    )
+                                  : const Icon(Icons.circle_outlined, size: 20),
+                              selected: isSelected,
+                              selectedTileColor: AppColors.secondary
+                                  .withOpacity(0.08),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              onTap: () => setState(() => selected = n),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('キャンセル'),
+                  ),
+                  FilledButton(
+                    onPressed: selected == null
+                        ? null
+                        : () async {
+                            try {
+                              await HomePageApiService.addTeachableSkill(
+                                selected!,
+                              );
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                              _refreshProfile();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('"$selected" を追加しました'),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('追加に失敗: $e')),
+                                );
+                              }
+                            }
+                          },
+                    child: const Text('追加'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // ensure any loader closed
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('スキル一覧取得に失敗: $e')));
+      }
+    }
   }
 }

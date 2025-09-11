@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:grow_up/features/auth/screens/Login.dart';
 import 'package:grow_up/features/auth/screens/Register.dart';
 import 'package:grow_up/features/home/CreateWorkshopScreen.dart';
+import 'package:grow_up/features/home/HomePage.dart';
 import 'package:grow_up/features/home/ProfileScreen.dart';
 import 'package:grow_up/features/home/WorkshopListScreen.dart';
 import 'package:grow_up/main.dart';
@@ -71,8 +72,4 @@ final goRouter = GoRouter(
     ),
   ],
   // 遷移ページがないなどのエラーが発生した時に、このページに行く
-  errorPageBuilder: (context, state) => MaterialPage(
-    key: state.pageKey,
-    child: Scaffold(body: Center(child: Text(state.error.toString()))),
-  ),
 );

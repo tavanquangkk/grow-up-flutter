@@ -11,7 +11,7 @@ class HomeSearchBar extends StatelessWidget {
       height: 48,
       child: TextField(
         decoration: InputDecoration(
-          hintText: '勉強会やユーザーを検索...',
+          hintText: '勉強会やユーザーを検索...(開発中)',
           hintStyle: const TextStyle(fontSize: 14),
           prefixIcon: Icon(
             Icons.search,
