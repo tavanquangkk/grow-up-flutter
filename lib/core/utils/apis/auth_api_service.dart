@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:grow_up/core/config/api_config.dart';
 import 'package:grow_up/core/utils/auth/token_store.dart';
+import 'package:grow_up/core/utils/auth/platform_token_store.dart';
 import 'package:grow_up/core/utils/auth/jwt_utils.dart';
 import 'package:grow_up/features/chat/dto/chat_history_response.dart';
 
@@ -18,11 +19,11 @@ import 'package:grow_up/features/chat/dto/chat_history_response.dart';
 class ApiService {
   static String get baseUrl => ApiConfig.authBaseUrl;
 
-  // Token store (default: Composite -> refresh token secure, access in prefs)
-  /// Token の永続化レイヤ。デフォルトは Composite:
-  ///  - access / userId: SharedPreferences
-  ///  - refresh: flutter_secure_storage (Keychain / Keystore)
-  static TokenStore _store = CompositeTokenStore();
+  // Token store (platform-aware: Web uses localStorage, Mobile uses Composite)
+  /// Token の永続化レイヤ。プラットフォーム自動判定:
+  ///  - Web: localStorage
+  ///  - Mobile: Composite (access/userId: SharedPreferences, refresh: SecureStorage)
+  static TokenStore _store = PlatformTokenStore.create();
 
   // HTTP client (injectable for tests)
   /// HTTP クライアント。テスト時に MockClient を差し替え可能。

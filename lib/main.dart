@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grow_up/core/utils/router.dart';
 import 'package:grow_up/features/auth/screens/Login.dart';
@@ -9,6 +11,17 @@ import 'package:grow_up/features/home/ProfileScreen.dart';
 import 'package:grow_up/screens/ChatScreen.dart';
 import 'package:grow_up/core/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Web用のスクロール設定クラス
+class WebScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+  };
+}
 
 void main() {
   runApp(const MyApp());
@@ -108,12 +121,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      routerDelegate: goRouter.routerDelegate,
-      routeInformationParser: goRouter.routeInformationParser,
-      routeInformationProvider: goRouter.routeInformationProvider,
-      title: 'Grow up',
-      theme: AppTheme.lightTheme,
+    return ScrollConfiguration(
+      behavior: WebScrollBehavior(),
+      child: MaterialApp.router(
+        routerDelegate: goRouter.routerDelegate,
+        routeInformationParser: goRouter.routeInformationParser,
+        routeInformationProvider: goRouter.routeInformationProvider,
+        title: 'Grow up',
+        theme: AppTheme.lightTheme,
+        scrollBehavior: WebScrollBehavior(),
+      ),
     );
   }
 }
