@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:grow_up/core/config/api_config.dart';
 import 'package:grow_up/core/utils/auth/token_store.dart';
 import 'package:grow_up/core/utils/auth/jwt_utils.dart';
+import 'package:grow_up/features/chat/dto/chat_history_response.dart';
 
 /// 認証付き HTTP 通信まわりの共通処理を提供するサービスクラス。
 /// 主な責務:
@@ -144,6 +145,62 @@ class ApiService {
     } catch (e) {
       _log('refresh exception: $e');
       return false;
+    }
+  }
+
+  // ================= Chat History =================
+  /// チャット履歴を取得する
+  static Future<ChatHistoryResponse?> getChatHistory({
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (limit != null) queryParams['limit'] = limit.toString();
+      if (offset != null) queryParams['offset'] = offset.toString();
+
+      // チャット履歴APIは8081ポートを使用し、直接 /chats エンドポイントにアクセス
+      final uri = Uri.parse(
+        '${ApiConfig.chatBaseUrl}/chats',
+      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+
+      // JWTトークンの内容をデバッグ
+      final token = await getToken();
+      if (token != null) {
+        final payload = JwtUtils.decodePayload(token);
+        _log('JWT payload: $payload');
+        _log('JWT sub: ${JwtUtils.getSubject(token)}');
+        _log('JWT userId: ${JwtUtils.getUserId(token)}');
+      }
+
+      _log('getChatHistory requesting: ${uri.toString()}');
+      final response = await getWithAuth(uri.toString());
+
+      _log('getChatHistory response status: ${response.statusCode}');
+      _log('getChatHistory response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = _decode(response);
+        _log('getChatHistory decoded data: $data');
+
+        // チャット履歴APIは他のAPIと異なり、直接messagesとtotalを返す
+        if (data is Map && data.containsKey('messages')) {
+          _log('getChatHistory success, parsing data...');
+          return ChatHistoryResponse.fromJson(Map<String, dynamic>.from(data));
+        } else if (_isSuccess(response, data)) {
+          // 従来のAPI形式（data.dataの形式）の場合
+          _log('getChatHistory success (standard format), parsing data...');
+          return ChatHistoryResponse.fromJson(data['data']);
+        } else {
+          _log('getChatHistory not successful: ${data['status']}');
+        }
+      }
+
+      _log('getChatHistory failed: ${response.statusCode} ${response.body}');
+      return null;
+    } catch (e) {
+      _log('getChatHistory error: $e');
+      return null;
     }
   }
 
@@ -454,5 +511,19 @@ class ApiService {
     if (token == null || token.isEmpty) return 'NULL';
     if (token.length <= 10) return token;
     return token.substring(0, 4) + '...' + token.substring(token.length - 4);
+  }
+
+  /// 現在ログインしているユーザーのIDを取得
+  static Future<String?> getCurrentUserId() async {
+    try {
+      final token = await getToken();
+      if (token != null && token.isNotEmpty) {
+        return JwtUtils.getUserId(token);
+      }
+      return null;
+    } catch (e) {
+      _log('Error getting current user ID: $e');
+      return null;
+    }
   }
 }

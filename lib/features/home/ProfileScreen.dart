@@ -27,6 +27,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? _actualFollowingCount;
   int? _actualFollowerCount;
 
+  bool _isFollowingOther = false; // viewing someone else & following
+  bool _followProcessing = false;
   @override
   void initState() {
     super.initState();
@@ -35,6 +37,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _loadFollowingCount();
       _loadFollowerCount();
     });
+    _initFollowState();
+  }
+
+  Future<void> _initFollowState() async {
+    try {
+      // 自分のプロフィールなら不要
+      if (widget.userId.isEmpty) return;
+      // fetch my profile to compare id if not already
+      final my = await HomePageApiService.fetchMyProfile();
+      final myId = my['data']?['id']?.toString();
+      if (myId != null && myId == widget.userId) return; // 自分
+      final followingIds = await HomePageApiService.fetchFollowingIds();
+      if (mounted) {
+        setState(() {
+          _isFollowingOther = followingIds.contains(widget.userId);
+        });
+      }
+    } catch (_) {
+      // 静かに無視（フォロー状態が分からなくても致命的ではない）
+    }
+  }
+
+  Future<void> _handleFollowOther(String userId) async {
+    if (_followProcessing) return;
+    setState(() {
+      _followProcessing = true;
+      _isFollowingOther = true; // optimistic
+    });
+    try {
+      await HomePageApiService.followUser(userId);
+      _loadFollowerCount();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isFollowingOther = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('フォロー失敗: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _followProcessing = false);
+    }
+  }
+
+  Future<void> _handleUnfollowOther(String userId) async {
+    if (_followProcessing) return;
+    setState(() {
+      _followProcessing = true;
+      _isFollowingOther = false; // optimistic
+    });
+    try {
+      await HomePageApiService.unfollowUser(userId);
+      _loadFollowerCount();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isFollowingOther = true);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('フォロー解除失敗: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _followProcessing = false);
+    }
   }
 
   Future<void> _loadCurrentUserId() async {
@@ -290,8 +354,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: Text('ユーザー情報が見つかりません'));
           }
 
+          // Spacing & layout constants (tuned for compact, balanced layout)
           const double avatarRadius = 44;
           const double headerHeight = 160;
+          const double hPad = 20; // global horizontal padding
+          const double topOffsetAfterAvatar =
+              12; // space above first content after avatar
+          const double sectionGap = 20; // between major sections
+          const double minorGap = 12; // small vertical gap
 
           return Stack(
             children: [
@@ -352,12 +422,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.only(
-                        top: avatarRadius + 24, // アバター分空ける
-                        left: 24,
-                        right: 24,
-                        bottom: 24,
+                        top: avatarRadius + topOffsetAfterAvatar,
+                        left: hPad,
+                        right: hPad,
+                        bottom: 16,
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // User name and info（プロフィール画像は削除）
                           Column(
@@ -422,178 +493,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
 
                               SizedBox(height: 20),
-                              // Stats and actions row
-                              Row(
-                                children: [
-                                  // フォロー中
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap:
-                                          _isMyProfile &&
-                                              _getFollowingCount(userData) > 0
-                                          ? () async {
-                                              await Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      FollowingUsersScreen(),
-                                                ),
-                                              );
-                                              // 画面から戻った時にフォロー中の数を更新
-                                              _loadFollowingCount();
-                                              _loadFollowerCount(); // フォロワー数も更新
-                                            }
-                                          : null,
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color:
-                                              _isMyProfile &&
-                                                  _getFollowingCount(userData) >
-                                                      0
-                                              ? AppColors.primary.withOpacity(
-                                                  0.05,
-                                                )
-                                              : Colors.transparent,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start, // 左寄せ
-                                          children: [
-                                            Text(
-                                              '${_getFollowingCount(userData)}',
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                                color:
-                                                    _isMyProfile &&
-                                                        _getFollowingCount(
-                                                              userData,
-                                                            ) >
-                                                            0
-                                                    ? AppColors.primary
-                                                    : AppColors.textPrimary,
-                                              ),
-                                            ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'フォロー中',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color:
-                                                        AppColors.textSecondary,
+                              if (_isMyProfile)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _StatTile(
+                                        label: 'フォロー中',
+                                        value: _getFollowingCount(userData),
+                                        highlight:
+                                            _getFollowingCount(userData) > 0,
+                                        onTap: _getFollowingCount(userData) > 0
+                                            ? () async {
+                                                await Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        FollowingUsersScreen(),
                                                   ),
-                                                ),
-                                                if (_isMyProfile &&
-                                                    _getFollowingCount(
-                                                          userData,
-                                                        ) >
-                                                        0)
-                                                  Icon(
-                                                    Icons.chevron_right,
-                                                    size: 16,
-                                                    color:
-                                                        AppColors.textSecondary,
-                                                  ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                                );
+                                                _loadFollowingCount();
+                                                _loadFollowerCount();
+                                              }
+                                            : null,
                                       ),
                                     ),
-                                  ),
-
-                                  // フォロワー
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap:
-                                          _isMyProfile &&
-                                              _getFollowerCount(userData) > 0
-                                          ? () async {
-                                              await Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      FollowerUsersScreen(),
-                                                ),
-                                              );
-                                              // 画面から戻った時にフォロワーの数を更新
-                                              _loadFollowerCount();
-                                            }
-                                          : null,
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color:
-                                              _isMyProfile &&
-                                                  _getFollowerCount(userData) >
-                                                      0
-                                              ? AppColors.primary.withOpacity(
-                                                  0.05,
-                                                )
-                                              : Colors.transparent,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start, // 左寄せ
-                                          children: [
-                                            Text(
-                                              '${_getFollowerCount(userData)}',
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                                color:
-                                                    _isMyProfile &&
-                                                        _getFollowerCount(
-                                                              userData,
-                                                            ) >
-                                                            0
-                                                    ? AppColors.primary
-                                                    : AppColors.textPrimary,
-                                              ),
-                                            ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'フォロワー',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color:
-                                                        AppColors.textSecondary,
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: _StatTile(
+                                        label: 'フォロワー',
+                                        value: _getFollowerCount(userData),
+                                        highlight:
+                                            _getFollowerCount(userData) > 0,
+                                        onTap: _getFollowerCount(userData) > 0
+                                            ? () async {
+                                                await Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        FollowerUsersScreen(),
                                                   ),
-                                                ),
-                                                if (_isMyProfile &&
-                                                    _getFollowerCount(
-                                                          userData,
-                                                        ) >
-                                                        0)
-                                                  Icon(
-                                                    Icons.chevron_right,
-                                                    size: 16,
-                                                    color:
-                                                        AppColors.textSecondary,
-                                                  ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                                );
+                                                _loadFollowerCount();
+                                              }
+                                            : null,
                                       ),
                                     ),
-                                  ),
-
-                                  // DMボタン (他の人の場合のみ表示)
-                                  if (!_isMyProfile)
+                                  ],
+                                )
+                              else
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 44,
+                                        child: _followProcessing
+                                            ? Center(
+                                                child: SizedBox(
+                                                  width: 22,
+                                                  height: 22,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                ),
+                                              )
+                                            : ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      _isFollowingOther
+                                                      ? AppColors.surface
+                                                      : AppColors.primary,
+                                                  foregroundColor:
+                                                      _isFollowingOther
+                                                      ? AppColors.primary
+                                                      : Colors.white,
+                                                  elevation: _isFollowingOther
+                                                      ? 0
+                                                      : 2,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          24,
+                                                        ),
+                                                    side: _isFollowingOther
+                                                        ? BorderSide(
+                                                            color: AppColors
+                                                                .primary
+                                                                .withOpacity(
+                                                                  0.4,
+                                                                ),
+                                                          )
+                                                        : BorderSide.none,
+                                                  ),
+                                                ),
+                                                onPressed: () {
+                                                  if (_isFollowingOther) {
+                                                    _handleUnfollowOther(
+                                                      widget.userId,
+                                                    );
+                                                  } else {
+                                                    _handleFollowOther(
+                                                      widget.userId,
+                                                    );
+                                                  }
+                                                },
+                                                child: Text(
+                                                  _isFollowingOther
+                                                      ? 'フォロー中'
+                                                      : 'フォローする',
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         onPressed: () {
@@ -615,50 +627,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                       ),
                                     ),
-                                ],
-                              ),
+                                  ],
+                                ),
                             ],
                           ),
 
-                          SizedBox(height: 24), // 32 → 24に調整
+                          SizedBox(height: minorGap + 8),
                           // Content sections
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // 自己紹介
-                                _buildSection(
-                                  '自己紹介',
-                                  Icons.person_outline,
-                                  userData['introduction'] ??
-                                      '自己紹介はまだ設定されていません',
-                                ),
+                          // Main content sections
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 自己紹介
+                              _buildSection(
+                                '自己紹介',
+                                Icons.person_outline,
+                                userData['introduction'] ?? '自己紹介はまだ設定されていません',
+                              ),
 
-                                SizedBox(height: 24),
+                              SizedBox(height: sectionGap),
 
-                                // 学習したいスキル (横スクロール表示)
-                                LearningSkillsHorizontalList(
-                                  rawSkills:
-                                      (userData['learningSkills'] ?? [])
-                                          as List,
-                                  onSkillAdded: _refreshProfile,
-                                  isMyProfile: _isMyProfile,
-                                ),
+                              // 学習したいスキル (横スクロール表示)
+                              LearningSkillsHorizontalList(
+                                rawSkills:
+                                    (userData['learningSkills'] ?? []) as List,
+                                onSkillAdded: _refreshProfile,
+                                isMyProfile: _isMyProfile,
+                              ),
 
-                                SizedBox(height: 24),
+                              SizedBox(height: sectionGap),
 
-                                // シェアできるスキル
-                                _buildTeachableSkillsSection(
-                                  'シェアできるスキル',
-                                  Icons.share_outlined,
-                                  userData['teachableSkills'] ?? [],
-                                  AppColors.secondary,
-                                ),
+                              // シェアできるスキル
+                              _buildTeachableSkillsSection(
+                                'シェアできるスキル',
+                                Icons.share_outlined,
+                                userData['teachableSkills'] ?? [],
+                                AppColors.secondary,
+                              ),
 
-                                SizedBox(height: 32),
-                              ],
-                            ),
+                              SizedBox(height: sectionGap + 4),
+                            ],
                           ),
                         ],
                       ),
@@ -668,8 +676,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               // フローティングアバター
               Positioned(
-                top: headerHeight - avatarRadius - 20,
-                left: 24,
+                top: headerHeight - avatarRadius - 10,
+                left: hPad,
                 child: _FloatingAvatar(
                   radius: avatarRadius,
                   imageUrl: userData['profileImageUrl'],
@@ -1231,3 +1239,66 @@ class _FloatingAvatar extends StatelessWidget {
     );
   }
 }
+
+// ================= Stat Tile (self profile only) =================
+class _StatTile extends StatelessWidget {
+  final String label;
+  final int value;
+  final bool highlight;
+  final VoidCallback? onTap;
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.highlight,
+    this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = highlight ? AppColors.primary : AppColors.textPrimary;
+    final canTap = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: canTap && highlight
+              ? AppColors.primary.withOpacity(0.05)
+              : Colors.transparent,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$value',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: baseColor,
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (canTap && highlight)
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ================= Follow handlers for other profile =================

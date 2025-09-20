@@ -6,6 +6,7 @@ import 'package:grow_up/features/auth/screens/Register.dart';
 import 'package:grow_up/features/home/HomePage.dart';
 import 'package:grow_up/features/home/MyWorkshopsScreen.dart';
 import 'package:grow_up/features/home/ProfileScreen.dart';
+import 'package:grow_up/screens/ChatScreen.dart';
 import 'package:grow_up/core/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,20 +50,45 @@ class _MainScaffoldState extends State<MainScaffold> {
               });
             },
           )
-        : Center(child: CircularProgressIndicator()),
+        : const Center(child: CircularProgressIndicator()),
+    const ChatScreen(),
   ];
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // デバッグ用ログ
+    print('Tab tapped: $index');
+
+    // 各タブに対応するルートに遷移（オプション）
+    switch (index) {
+      case 0:
+        // ホーム画面への明示的な遷移は不要（既にMainScaffold内で管理）
+        break;
+      case 1:
+        // 勉強会画面
+        break;
+      case 2:
+        // プロフィール画面
+        break;
+      case 3:
+        // チャット画面
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onTap: _onTabTapped,
+        selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
           BottomNavigationBarItem(
@@ -70,6 +96,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             label: '自分の勉強会',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'プロフィール'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'チャット'),
         ],
       ),
     );
@@ -86,7 +113,7 @@ class MyApp extends StatelessWidget {
       routeInformationParser: goRouter.routeInformationParser,
       routeInformationProvider: goRouter.routeInformationProvider,
       title: 'Grow up',
-      theme: ThemeData(primarySwatch: Colors.orange),
+      theme: AppTheme.lightTheme,
     );
   }
 }

@@ -291,7 +291,7 @@ class HomePageApiService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode(skillName), // raw string body (JSON string)
+        body: skillName, // raw string body (JSON string)
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         String msg;

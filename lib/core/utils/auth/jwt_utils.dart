@@ -20,4 +20,31 @@ class JwtUtils {
       return true;
     }
   }
+
+  /// JWT ペイロードをデコードして返す (デバッグ用)
+  static Map<String, dynamic>? decodePayload(String? jwt) {
+    if (jwt == null || jwt.isEmpty) return null;
+    final parts = jwt.split('.');
+    if (parts.length != 3) return null;
+    try {
+      final normalized = base64Url.normalize(parts[1]);
+      final payloadJson = utf8.decode(base64Url.decode(normalized));
+      return jsonDecode(payloadJson);
+    } catch (e) {
+      print('JWT decode error: $e');
+      return null;
+    }
+  }
+
+  /// JWT から userId を取得する
+  static String? getUserId(String? jwt) {
+    final payload = decodePayload(jwt);
+    return payload?['userId'] as String?;
+  }
+
+  /// JWT から sub (subject) を取得する
+  static String? getSubject(String? jwt) {
+    final payload = decodePayload(jwt);
+    return payload?['sub'] as String?;
+  }
 }
